@@ -1,4 +1,2 @@
 # How to install
-1. Ensure you have 
-2. second
-3. third
+1. Get `pipenv` to handle the installation of the dependencies

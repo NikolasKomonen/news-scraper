@@ -1,0 +1,2 @@
+class ArticleScrapingException(Exception):
+    """"""
