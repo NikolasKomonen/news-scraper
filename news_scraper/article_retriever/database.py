@@ -1,20 +1,15 @@
 from dataclasses import dataclass
-import dataclasses
-from datetime import datetime, timezone
+
 import logging
 from sqlite3 import Connection
 from typing import Iterable
-from pymongo.database import Database
 from yarl import URL
 
 from news_scraper.article_retriever.protocols import ArticleRetriever, ArticleUrlScraper
 from news_scraper.article_retriever.wayback import WAYBACK_ARCHIVE_PATTERN
 from news_scraper.database.sqlite.client import ArticleMetadataTable, ArticleTextTable, ScrapedWaybackUrl, WaybackResult
-from ..article.article import DefaultArticleMetadata, DefaultArticleText
 
 from ..article.protocols import ArticleText
-
-from ..database.mongo.client import Mongo
 
 logger = logging.getLogger()
 
@@ -25,17 +20,19 @@ class DatabaseArticleException(Exception):
 
 @dataclass(frozen=True)
 class DatabaseArticleRetriever:
+    """
+    Article Retriever that uses a database
+    to cache results and will load results
+    from cache if they already exist.
+    """
 
     connection: Connection
     actual_retriever: ArticleRetriever
 
     def __call__(self, url: URL) -> ArticleText:
-        amt = ArticleMetadataTable(self.connection)
-        article_metadata_id = amt.get_id(url)
-
+        
         att = ArticleTextTable(self.connection)
-
-        article = att.get_article(article_metadata_id)
+        article = att.get_article(url)
 
         if article is not None:
             logger.info(f"Found cached text for: '{url.human_repr()}'")

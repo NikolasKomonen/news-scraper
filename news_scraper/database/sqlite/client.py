@@ -1,6 +1,8 @@
-from abc import abstractmethod
+from __future__ import annotations
+from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
+import logging
 from pathlib import Path
 from sqlite3 import Connection, Cursor, connect
 from textwrap import dedent
@@ -15,6 +17,8 @@ from news_scraper.article.protocols import ArticleMetadata, ArticleText
 from news_scraper.article_retriever.wayback import WAYBACK_ARCHIVE_PATTERN
 
 SQL_NULL = "NULL"
+
+logger = logging.getLogger()
 
 
 class SqliteConnection:
@@ -36,18 +40,24 @@ class NewsScraperSqliteConnection:
 
 
 class SqlTable:
+    """
+    The base class that all sql tables should inherit from.
+    """
     def __init__(self, connection: Connection) -> None:
         self.connection = connection
         self.cursor = connection.cursor()
 
     @abstractmethod
     def create_table(self) -> None:
-        """"""
+        """A method that creates the table.
+        Try to make this conflict-less so it can
+        be run without worry to the existing table.
+        """
 
     @property
     @abstractmethod
     def name(self) -> str:
-        """Name of table"""
+        """The name of table"""
 
     def query(self, query: str) -> Cursor:
         return self.cursor.execute(query)
@@ -74,6 +84,7 @@ class SqlTable:
 
 
 class NewsWebsiteEnum(Enum):
+    """Enum for known News Websites"""
     THE_MOSCOW_TIMES = "themoscowtimes.com"
     NOVAYAGAZETA = "novayagazeta.ru"
     RIA = "ria.ru"
@@ -82,7 +93,14 @@ class NewsWebsiteEnum(Enum):
     TASS = "tass.com"
 
     @classmethod
-    def from_url(cls, url: URL):
+    def from_url(cls, url: URL) -> NewsWebsiteEnum:
+        """
+        Determines the correct enum from a url.
+
+        This also:
+            - Handles wayback urls that may
+              contain a defined news website.
+        """
         match = WAYBACK_ARCHIVE_PATTERN.match(url.human_repr())
         if match:
             return cls(URL(match.group("URL")).host)
@@ -90,6 +108,10 @@ class NewsWebsiteEnum(Enum):
 
 
 class NewsWebsite(SqlTable):
+    """
+    Table that represents the known
+    news websites
+    """
     def __init__(self, connection: Connection) -> None:
         """"""
         super().__init__(connection)
@@ -124,6 +146,10 @@ class NewsWebsite(SqlTable):
         )
 
     def create_initial_data(self) -> None:
+        """
+        Inserts all known news article websites
+        with a defined ID.
+        """
         self.transaction(
             f"""
             INSERT INTO {self.name}
@@ -172,6 +198,10 @@ class NewsWebsite(SqlTable):
 
 
 class WaybackResult(SqlTable):
+    """
+    Table that holds the results of requesting
+    a wayback machine url for a given url and datetime.
+    """
     def __init__(self, connection: Connection) -> None:
         """"""
         super().__init__(connection)
@@ -181,6 +211,11 @@ class WaybackResult(SqlTable):
     @property
     def name(cls) -> str:
         return "wayback_result"
+    
+    @classmethod
+    @property
+    def foreign_id(cls) -> str:
+        return f"{cls.name}_id"
 
     @classmethod
     @property
@@ -195,24 +230,25 @@ class WaybackResult(SqlTable):
     @classmethod
     @property
     def actual_url(cls) -> str:
+        """The url provided by wayback machine."""
         return "actual_url"
 
     @classmethod
     @property
     def actual_ts(cls) -> str:
+        """The timestamp the wayback url is created at."""
         return "actual_ts"
 
     def create_table(self) -> None:
-
         self.transaction(
             f"""
             CREATE TABLE IF NOT EXISTS {self.name} (
-                "id"                   INTEGER,
-                "{NewsWebsite.foreign_id}"  INTEGER,
-                "{self.requested_url}" TEXT NOT NULL,
-                "{self.requested_ts}"  TEXT NOT NULL,
-                "{self.actual_url}"    TEXT,
-                "{self.actual_ts}"	   TEXT,
+                "id"                       INTEGER,
+                "{NewsWebsite.foreign_id}" INTEGER,
+                "{self.requested_url}"     TEXT NOT NULL,
+                "{self.requested_ts}"      TEXT NOT NULL,
+                "{self.actual_url}"        TEXT,
+                "{self.actual_ts}"	       TEXT,
                 PRIMARY KEY("id" AUTOINCREMENT),
                 UNIQUE("{self.requested_url}" ,"{self.requested_ts}"),
                 FOREIGN KEY("{NewsWebsite.foreign_id}") REFERENCES "{NewsWebsite.name}"("id")
@@ -273,7 +309,13 @@ class WaybackResult(SqlTable):
         requested_url: URL,
         requested_ts: datetime,
     ) -> bool:
-        """"""
+        """Check if a result for a requested url + timestamp
+        was successfully retrieved.
+
+        The request data may exist, but if no result
+        was returned the actual url and timestamp
+        would be null.
+        """
         query = self._request_exists(requested_url, requested_ts)
         res = self.query(query)
         if res is None:
@@ -301,10 +343,12 @@ class WaybackResult(SqlTable):
         ).strip()
 
     def get_urls(self) -> Iterable[URL]:
+        """Gets all retrieved wayback urls."""
         rows = self.query(
             f"""
             SELECT {self.actual_url}
             FROM {self.name}
+            WHERE {self.actual_url} IS NOT NULL
         """
         )
         return [URL(row[0]) for row in rows]
@@ -315,7 +359,7 @@ class WaybackResult(SqlTable):
         url matches the url provided by the wayback
         result, not the url used to request.
 
-        There are scenarios where multiple timestamps
+        There are scenarios where multiple requested timestamps
         have the same wayback url. This will return
         the id of the row which has the closest timestamp
         to the time that was requested.
@@ -361,36 +405,39 @@ class WaybackResult(SqlTable):
 
         return [(URL(row[0], datetime.fromisoformat(row[1]))) for row in rows]
 
-    def get_scraped_urls_for_days(self) -> Iterable[set[URL]]:
-        swu = ScrapedWaybackUrl(self.connection)
-        for day_with_req in self._get_days_with_request():
-            url, day = day_with_req
-
 
 class ScrapedWaybackUrl(SqlTable):
+    """
+    This table holds all the article urls that were scraped
+    from the webpage (probably the front page) of
+    the news site at a given time.
+
+    Notable, a WaybackResult can have the
+    same result for multiple times of the day.
+    This means there can be some redundant URLs
+    in this tables scraped URLs.
+    """
     def __init__(self, connection: Connection) -> None:
         super().__init__(connection)
         self.create_table()
 
+    @classmethod
     @property
-    def name(self) -> str:
+    def name(cls) -> str:
         return "scraped_wayback_url"
-
+        
+    @classmethod
     @property
-    def wayback_result_id(self) -> str:
-        return f"{WaybackResult.name}_id"
-
-    @property
-    def scraped_url(self) -> str:
+    def scraped_url(cls) -> str:
         return "scraped_url"
 
     def create_table(self) -> None:
         query = f"""
             CREATE TABLE IF NOT EXISTS "{self.name}" (
-                "{self.wayback_result_id}" INTEGER,
+                "{WaybackResult.foreign_id}" INTEGER,
                 "{self.scraped_url}"	   TEXT NOT NULL,
-                FOREIGN KEY("{self.wayback_result_id}") REFERENCES "{WaybackResult.name}"("id"),
-                PRIMARY KEY("{self.wayback_result_id}", "{self.scraped_url}")
+                FOREIGN KEY("{WaybackResult.foreign_id}") REFERENCES "{WaybackResult.name}"("id"),
+                PRIMARY KEY("{WaybackResult.foreign_id}", "{self.scraped_url}")
             );
         """
         self.transaction(query)
@@ -410,7 +457,7 @@ class ScrapedWaybackUrl(SqlTable):
             SELECT {self.scraped_url}
             FROM {self.name}
             WHERE
-                {self.wayback_result_id} = "{wayback_result_id}"
+                {WaybackResult.foreign_id} = '{wayback_result_id}'
         """
         )
         return [URL(row[0]) for row in res]
@@ -419,23 +466,32 @@ class ScrapedWaybackUrl(SqlTable):
     def get_count_for_id(self, wayback_result_id: int) -> int:
         res = self.query(
             f"""
-            SELECT COUNT({self.wayback_result_id})
+            SELECT COUNT({WaybackResult.foreign_id})
             FROM {self.name}
             WHERE
-                {self.wayback_result_id} = "{wayback_result_id}"
+                {WaybackResult.foreign_id} = "{wayback_result_id}"
         """
         )
         count = next(iter(res))[0]
         return count
     
     def get_unique_urls_from_site(self, news_site: NewsWebsiteEnum) -> Iterable[URL]:
+        """
+        A WaybackResult can have the
+        same result for multiple times of the day.
+        This means there can be some redundant URLs
+        in this tables scraped URLs.
+
+        This query returns a list of distinct
+        URLs for a given news site.
+        """
         nws = NewsWebsite(self.connection)
         news_site_id = nws.get_id(news_site)
 
         query = dedent(f"""
             SELECT DISTINCT {self.scraped_url}
             FROM {self.name}
-            JOIN {WaybackResult.name} ON {self.name}.{self.wayback_result_id}={WaybackResult.name}.id
+            JOIN {WaybackResult.name} ON {self.name}.{WaybackResult.foreign_id}={WaybackResult.name}.id
             WHERE
                 {WaybackResult.name}.{NewsWebsite.foreign_id}={news_site_id}
         """)
@@ -445,6 +501,9 @@ class ScrapedWaybackUrl(SqlTable):
 
 
 class ArticleMetadataTable(SqlTable):
+    """
+    Table that holds the metadata of an article
+    """
     def __init__(self, connection: Connection) -> None:
         super().__init__(connection)
         self.create_table()
@@ -471,11 +530,11 @@ class ArticleMetadataTable(SqlTable):
 
     def create_table(self) -> None:
         transaction = f"""
-            CREATE TABLE IF NOT EXISTS "article_metadata" (
-                "id"	          INTEGER,
-                "{self.url}"	  TEXT NOT NULL UNIQUE,
-                "{self.datetime}"	TEXT NOT NULL,
-                "{NewsWebsite.foreign_id}"	INTEGER,
+            CREATE TABLE IF NOT EXISTS "{self.name}" (
+                "id"	                   INTEGER,
+                "{self.url}"	           TEXT NOT NULL UNIQUE,
+                "{self.datetime}"	       TEXT NOT NULL,
+                "{NewsWebsite.foreign_id}" INTEGER,
                 FOREIGN KEY("{NewsWebsite.foreign_id}") REFERENCES "{NewsWebsite.name}"("id"),
                 PRIMARY KEY("id" AUTOINCREMENT)
             );
@@ -498,6 +557,16 @@ class ArticleMetadataTable(SqlTable):
         self.transaction(transaction)
     
     def get_id(self, article_url: URL) -> int:
+        """
+        Gets the id of the metadata row that
+        has the given article.
+
+        Since the article url is distinct, we
+        only expect one result.
+
+        If no metadata exists for the given url,
+        then 0 is returned.
+        """
         query = f"""
             SELECT id
             FROM {self.name}
@@ -565,7 +634,17 @@ class ArticleTextTable(SqlTable):
         """)
         self.transaction(transaction, (text.title, text.lead, text.body, text.title, text.lead, text.body))
     
-    def get_article(self, metadata_id: int) -> Optional[ArticleText]:
+
+    def get_article(self, url: URL) -> Optional[ArticleText]:
+        """
+        Gets the article text object for a given metadata
+        id, if the article text + metadata id exist.
+        """
+        amt = ArticleMetadataTable(self.connection)
+        article_metadata_id = amt.get_id(url)
+        if article_metadata_id == 0:
+            return None
+        
         query = f"""
             SELECT 
                 {self.name}.{self.title},
@@ -575,7 +654,7 @@ class ArticleTextTable(SqlTable):
                 meta.{ArticleMetadataTable.datetime}
             FROM {self.name}
             JOIN {ArticleMetadataTable.name} AS meta ON {self.name}.{ArticleMetadataTable.foreign_id}=meta.id
-            WHERE {self.name}.{ArticleMetadataTable.foreign_id}={metadata_id}
+            WHERE {self.name}.{ArticleMetadataTable.foreign_id}={article_metadata_id}
         """
         res = next(iter(self.query(query)), None)
         if res is None:

@@ -8,10 +8,9 @@ from yarl import URL
 from news_scraper.article.article import DefaultArticleMetadata, DefaultArticleText
 from news_scraper.article.protocols import ArticleMetadata
 from news_scraper.article_retriever.common import (
-    CachedArticleRetrieverResolver,
+    DefaultArticleRetrieverResolver,
     DefaultArticleUrlScraperResolver,
 )
-from news_scraper.database.mongo.client import NEWS_SCRAPER_DATABASE, Mongo
 from playwright._impl._api_types import TimeoutError
 
 from news_scraper.article_finder.wayback_machine import do
@@ -54,7 +53,7 @@ def get_tass_article_text():
         swu = ScrapedWaybackUrl(conn)
         urls = swu.get_unique_urls_from_site(NewsWebsiteEnum.TASS)
         
-        scraper = CachedArticleRetrieverResolver(conn)(URL.build(scheme="https", host="web.archive", path=f"/{NewsWebsiteEnum.TASS.value}"))
+        scraper = DefaultArticleRetrieverResolver(conn)(URL.build(scheme="https", host="web.archive", path=f"/{NewsWebsiteEnum.TASS.value}"))
         for url in urls:
             print("----------")
             try:
