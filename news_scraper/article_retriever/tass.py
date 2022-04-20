@@ -40,10 +40,11 @@ class TassArticleRetriever:
         with sync_playwright() as p:
             browser = p.chromium.launch()
             page = browser.new_page()
+            logger.info(f"Loading page: '{url.human_repr()}'")
             page.goto(url.human_repr(), timeout=TIMEOUT_MILLISECONDS)
 
             # Get the HTML <div> that holds the article
-            logger.info(f"Loading page: '{url.human_repr()}'")
+            
             article_div = page.locator(".news")
 
             article_div.wait_for(timeout=TIMEOUT_MILLISECONDS)

@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 import dataclasses
 from functools import lru_cache
+import logging
 import re
-from typing import Iterable, Protocol
+from typing import Iterable, Optional, Protocol
 
 from yarl import URL
 from news_scraper.article.article import DefaultArticleMetadata
@@ -10,44 +11,68 @@ from news_scraper.article.article import DefaultArticleMetadata
 from news_scraper.article.protocols import ArticleText
 from news_scraper.article_retriever.lenta import LentaArticleUrlScraper
 from news_scraper.article_retriever.novayagazeta import NovayagazetaArticleUrlScraper
-from news_scraper.article_retriever.ria import RiaArticleUrlScraper
+from news_scraper.article_retriever.protocols import ArticleRetriever
+from news_scraper.article_retriever.ria import RiaArticleRetriever, RiaArticleUrlScraper
 from news_scraper.article_retriever.tass import (
+    TassArticleRetriever,
     TassArticleUrlScraper,
     cached_tass_article_retriever,
 )
 
 from news_scraper.article_retriever.moscow_times import (
+    MoscowTimesArticleRetriever,
     MoscowTimesArticleUrlScraper,
 )
+
+logger = logging.getLogger()
 
 WAYBACK_ARCHIVE_PATTERN = re.compile(
     r"https?\:\/\/web\.archive\.org\/web\/\d+\/(?P<URL>.*)"
 )
 
+def determine_actual_article_retriever(wayback_url: URL) -> Optional[ArticleRetriever]:
+    match = WAYBACK_ARCHIVE_PATTERN.match(wayback_url.human_repr())
+    if not match:
+        return None
+    url_text = match.group("URL")
+    if "tass.com" in url_text:
+        return TassArticleRetriever()
+    if "tass.ru" in url_text:
+        return TassArticleRetriever()
+    if "themoscowtimes.com" in url_text:
+        return MoscowTimesArticleRetriever()
+    if "ria.ru" in url_text:
+        return RiaArticleRetriever()
+    return None
 
 @dataclass(frozen=True)
 class WayBackMachineArticleRetriever:
     def __call__(self, url: URL) -> ArticleText:
         """"""
+        actual_retriever = determine_actual_article_retriever(url)
+        assert actual_retriever is not None, "URL given was not from the wayback machine"
+        
+        backup_url = None
         match = WAYBACK_ARCHIVE_PATTERN.match(url.human_repr())
-        if not match:
-            raise Exception("URL given was not from the wayback machine")
-        actual_url = URL(match.group("URL"))
-        if "tass" in actual_url.human_repr():
-            
-            url_to_scrape = url
-            # url_to_scrape = actual_url
-            
-            article_text = cached_tass_article_retriever(url_to_scrape)
+        if match:
+            backup_url = URL(match.group("URL"))
+        
+        try:
+            article_text = actual_retriever(url)
+        except Exception as e:
+            if backup_url is not None:
+                logger.info(f"Using backup url '{backup_url.human_repr()}'")
+                article_text = actual_retriever(backup_url)
+            else:
+                raise e
+        assert isinstance(article_text, ArticleText), f"No articel retriever can be resolved for {url.human_repr()}"
 
-            # if article_text.metadata.url != url:
-            #     metadata = DefaultArticleMetadata(datetime=article_text.metadata.datetime, url=url)
-            #     article_text = dataclasses.replace(article_text, metadata=metadata)
+        if article_text.metadata.url != url:
+            metadata = DefaultArticleMetadata(datetime=article_text.metadata.datetime, url=url)
+            article_text = dataclasses.replace(article_text, metadata=metadata)
             
-            return article_text
-        raise Exception(
-            f"Article retriever for '{actual_url.human_repr()}' in Wayback Machine not implemented."
-        )
+        return article_text
+        
 
 
 @dataclass(frozen=True)

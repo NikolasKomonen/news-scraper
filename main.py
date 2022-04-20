@@ -7,13 +7,12 @@ import pandas
 from yarl import URL
 from news_scraper.article.article import DefaultArticleMetadata, DefaultArticleText
 from news_scraper.article.protocols import ArticleMetadata
-from news_scraper.article_retriever.common import (
-    DefaultArticleRetrieverResolver,
-    DefaultArticleUrlScraperResolver,
-)
+
 from playwright._impl._api_types import TimeoutError
 
 from news_scraper.article_finder.wayback_machine import do
+from news_scraper.article_retriever.database import DatabaseArticleRetriever
+from news_scraper.article_retriever.wayback import WayBackMachineArticleRetriever
 from news_scraper.database.sqlite.client import (
     ArticleTextTable,
     NewsScraperSqliteConnection,
@@ -24,20 +23,9 @@ from news_scraper.database.sqlite.client import (
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-
-
-def scrape_articles():
-    with NewsScraperSqliteConnection.connection() as conn:
-        wr = WaybackResult(conn)
-        urls = wr.get_urls()
-
-        for url in urls:
-            if "lenta.ru" in url.human_repr():
-                continue
-            logger.info("----------")
-            resolver = DefaultArticleUrlScraperResolver(conn)
-            scraper = resolver(url)
-            scraper(url)
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.DEBUG)
+logger.addHandler(handler)
 
 
 def add_articles():
@@ -51,20 +39,17 @@ def get_tass_article_text():
     
     with NewsScraperSqliteConnection.connection() as conn:
         swu = ScrapedWaybackUrl(conn)
-        urls = swu.get_unique_urls_from_site(NewsWebsiteEnum.TASS)
-        
-        scraper = DefaultArticleRetrieverResolver(conn)(URL.build(scheme="https", host="web.archive", path=f"/{NewsWebsiteEnum.TASS.value}"))
+        urls = list(swu.get_unique_urls_from_site(NewsWebsiteEnum.TASS))
+        print(len(urls))
+       
+        cached_wayback_retriever = DatabaseArticleRetriever(conn, WayBackMachineArticleRetriever())
+        # scraper = DefaultArticleRetrieverResolver(conn)(URL.build(scheme="https", host="web.archive", path=f"/{NewsWebsiteEnum.TASS.value}"))
         for url in urls:
             print("----------")
             try:
-                scraper(url)
+                cached_wayback_retriever(url)
             except Exception as e:
-                logger.info("Retrying after exception was raised.")
-                logger.exception(e)
-                try:
-                    scraper(url)
-                except Exception:
-                    logger.info(f"Skipping {url.human_repr()} since it fails.")
+                logger.warning(f"Failed retrieving for {url.human_repr()}.")
 
 
 get_tass_article_text()

@@ -11,6 +11,7 @@ from news_scraper.article_retriever.database import (
 )
 from news_scraper.article_retriever.protocols import ArticleRetriever, ArticleUrlScraper
 from news_scraper.article_retriever.tass import (
+    TassArticleRetriever,
     cached_tass_article_retriever,
     cached_tass_article_url_scraper,
 )
@@ -27,41 +28,8 @@ handler = logging.StreamHandler(sys.stdout)
 logger.addHandler(handler)
 
 
-@dataclass(frozen=True)
-class DefaultArticleRetrieverResolver:
-    """This is a top level class that gives you the
-    correct article retriever for the given url.
 
-    Any new article retrievers will most likely want
-    to be added in to here.
 
-    This class abstracts the need to figure out which
-    retriever is needed.
-
-    Also all retrievers should use a cache, since this
-    is the goal of this implementation.
-    """
-
-    database: Database = None
-    tass_retriever: ArticleRetriever = cached_tass_article_retriever
-    wayback_retriever: ArticleRetriever = cached_wayback_machine_article_retriever
-
-    def __call__(self, url: URL):
-        """"""
-        host = url.host
-        if not host:
-            raise Exception(
-                f"Could not determine an ArticleRetriever for '{url.human_repr()}'."
-            )
-        retriever = None
-        if "web.archive" in host:
-            retriever = self.wayback_retriever
-            if self.database is not None:
-                return DatabaseArticleRetriever(self.database, retriever)
-            return retriever
-        raise Exception(
-            f"Could not determine an ArticleRetriever for '{url.human_repr()}'."
-        )
 
 
 @dataclass(frozen=True)
