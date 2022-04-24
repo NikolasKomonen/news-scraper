@@ -35,11 +35,11 @@ def add_articles():
         ArticleTextTable(conn).add_article(article_text)
 
 
-def get_tass_article_text():
+def get_mt_article_text():
     
     with NewsScraperSqliteConnection.connection() as conn:
         swu = ScrapedWaybackUrl(conn)
-        urls = list(swu.get_unique_urls_from_site(NewsWebsiteEnum.TASS_RU))
+        urls = list(swu.get_unique_urls_from_site(NewsWebsiteEnum.THE_MOSCOW_TIMES))
         print(len(urls))
        
         cached_wayback_retriever = DatabaseArticleRetriever(conn, WayBackMachineArticleRetriever())
@@ -50,7 +50,7 @@ def get_tass_article_text():
             except Exception as e:
                 logger.warning(f"Failed retrieving for {url.human_repr()}.")
 
-get_tass_article_text()
+get_mt_article_text()
 
 def update_scraped_urls():
     with NewsScraperSqliteConnection.connection() as conn:

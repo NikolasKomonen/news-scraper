@@ -104,7 +104,7 @@ class NewsWebsiteEnum(Enum):
         match = WAYBACK_ARCHIVE_PATTERN.match(url.human_repr())
         if match:
             return cls(URL(match.group("URL")).host)
-        return cls(url.host)
+        return cls(".".join(url.host.split(".")[-2:]))
 
 
 class NewsWebsite(SqlTable):
@@ -558,7 +558,8 @@ class ArticleMetadataTable(SqlTable):
     
     def add_metadata(self, metadata: ArticleMetadata):
         nw = NewsWebsite(self.connection)
-        website_id = nw.get_id(NewsWebsiteEnum.from_url(metadata.url))
+        news_site = NewsWebsiteEnum.from_url(metadata.url)
+        website_id = nw.get_id(news_site)
         transaction = f"""
             INSERT INTO {self.name} ({self.url}, {self.datetime}, {NewsWebsite.foreign_id})
             VALUES

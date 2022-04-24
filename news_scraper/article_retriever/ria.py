@@ -52,7 +52,7 @@ class RiaArticleRetriever:
             body = article_div.locator(
                 ".article__body .article__block .article__text"
             ).all_inner_texts()
-            body = re.sub("\n", " ", re.sub("\n\n", "\n", "".join(body)))
+            body = re.sub("\n", " ", re.sub("\n\n", "\n", " ".join(body)))
 
             return DefaultArticleText(
                 title=title, lead=lead, body=body, metadata=metadata

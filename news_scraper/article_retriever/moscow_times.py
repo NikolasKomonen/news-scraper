@@ -37,8 +37,8 @@ class MoscowTimesArticleRetriever:
             # Get the different pieces of text in the article
             title = article_div.locator(".article__header h1").inner_text()
             lead = article_div.locator(".article__header h2").inner_text()
-            body = article_div.locator(".article__content p").all_inner_texts()
-            body = re.sub("\n", " ", re.sub("\n\n", "\n", "".join(body)))
+            body = article_div.locator(".article__content .article__block--html").all_inner_texts()
+            body = re.sub("\n", " ", re.sub("\n\n", "\n", " ".join(body)))
 
             return DefaultArticleText(
                 title=title, lead=lead, body=body, metadata=metadata
