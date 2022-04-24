@@ -27,7 +27,7 @@ from news_scraper.article_retriever.moscow_times import (
 logger = logging.getLogger()
 
 WAYBACK_ARCHIVE_PATTERN = re.compile(
-    r"https?\:\/\/web\.archive\.org\/web\/\d+\/(?P<URL>.*)"
+    r"https?\:\/\/web\.archive\.org\/web\/[\da-z\_]+\/(?P<URL>.*)"
 )
 
 def determine_actual_article_retriever(wayback_url: URL) -> Optional[ArticleRetriever]:
@@ -52,24 +52,27 @@ class WayBackMachineArticleRetriever:
         actual_retriever = determine_actual_article_retriever(url)
         assert actual_retriever is not None, "URL given was not from the wayback machine"
         
-        backup_url = None
+        original_article_url = None
         match = WAYBACK_ARCHIVE_PATTERN.match(url.human_repr())
-        if match:
-            backup_url = URL(match.group("URL"))
+        if not match:
+            raise Exception(f"URL is not a wayback article url: '{url.human_repr()}'")
+        original_article_url = URL(match.group("URL"))
+        
         
         try:
             article_text = actual_retriever(url)
         except Exception as e:
-            if backup_url is not None:
-                logger.info(f"Using backup url '{backup_url.human_repr()}'")
-                article_text = actual_retriever(backup_url)
+            if original_article_url is not None:
+                logger.info(f"Using backup url '{original_article_url.human_repr()}'")
+                article_text = actual_retriever(original_article_url)
             else:
                 raise e
         assert isinstance(article_text, ArticleText), f"No articel retriever can be resolved for {url.human_repr()}"
 
-        if article_text.metadata.url != url:
-            metadata = DefaultArticleMetadata(datetime=article_text.metadata.datetime, url=url)
+        if article_text.metadata.url != original_article_url:
+            metadata = DefaultArticleMetadata(datetime=article_text.metadata.datetime, url=original_article_url)
             article_text = dataclasses.replace(article_text, metadata=metadata)
+        
             
         return article_text
         

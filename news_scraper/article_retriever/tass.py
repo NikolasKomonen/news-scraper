@@ -29,7 +29,7 @@ db.article_scraped_urls.updateMany({}, {$pull: {'scraped_urls': {"$regex": /.*\/
 
 """
 
-URLS_TO_SKIP = re.compile(r".+\/((sport)|(business\-officials)|(top\-officials))\/.+")
+URLS_TO_SKIP = re.compile(r".+\/((sport)|(business\-officials)|(top\-officials)|(ads)|(armiya-i-opk))\/.+")
 
 TIMEOUT_MILLISECONDS = 60000
 

@@ -431,11 +431,17 @@ class ScrapedWaybackUrl(SqlTable):
     def scraped_url(cls) -> str:
         return "scraped_url"
 
+    @classmethod
+    @property
+    def actual_url(cls) -> str:
+        return "actual_url"
+
     def create_table(self) -> None:
         query = f"""
             CREATE TABLE IF NOT EXISTS "{self.name}" (
                 "{WaybackResult.foreign_id}" INTEGER,
-                "{self.scraped_url}"	   TEXT NOT NULL,
+                "{self.scraped_url}"	     TEXT NOT NULL,
+                "{self.actual_url}"	         TEXT NOT NULL,
                 FOREIGN KEY("{WaybackResult.foreign_id}") REFERENCES "{WaybackResult.name}"("id"),
                 PRIMARY KEY("{WaybackResult.foreign_id}", "{self.scraped_url}")
             );
@@ -488,12 +494,21 @@ class ScrapedWaybackUrl(SqlTable):
         nws = NewsWebsite(self.connection)
         news_site_id = nws.get_id(news_site)
 
-        query = dedent(f"""
-            SELECT DISTINCT {self.scraped_url}
-            FROM {self.name}
-            JOIN {WaybackResult.name} ON {self.name}.{WaybackResult.foreign_id}={WaybackResult.name}.id
-            WHERE
-                {WaybackResult.name}.{NewsWebsite.foreign_id}={news_site_id}
+        query = dedent(f"""            
+            WITH article_with_requested_time AS (
+                SELECT sw.{self.actual_url}, sw.{self.scraped_url}, wr.{WaybackResult.requested_ts}, wr.{NewsWebsite.foreign_id}
+                FROM {self.name} as sw
+                JOIN {WaybackResult.name} as wr ON wr.id=sw.{WaybackResult.foreign_id}
+            ),
+            earliest_articles AS (
+                SELECT {self.scraped_url}, {NewsWebsite.foreign_id}, MIN({WaybackResult.requested_ts}) as earliest_ts
+                FROM article_with_requested_time
+                GROUP BY {self.actual_url}
+            )
+            
+            SELECT {self.scraped_url}
+            FROM earliest_articles
+            WHERE {NewsWebsite.foreign_id}={news_site_id}
         """)
         rows = self.query(query)
 
@@ -607,7 +622,7 @@ class ArticleTextTable(SqlTable):
                 "{self.title}"	               TEXT,
                 "{self.lead}"	               TEXT,
                 "{self.body}"	               TEXT,
-                FOREIGN KEY("{ArticleMetadataTable.foreign_id}") REFERENCES "{ArticleMetadataTable.name}"("id"),
+                FOREIGN KEY("{ArticleMetadataTable.foreign_id}") REFERENCES "{ArticleMetadataTable.name}"("id") ON DELETE CASCADE,
                 PRIMARY KEY("{ArticleMetadataTable.foreign_id}")
             );
         """

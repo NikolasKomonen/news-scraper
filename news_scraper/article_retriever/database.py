@@ -32,7 +32,12 @@ class DatabaseArticleRetriever:
     def __call__(self, url: URL) -> ArticleText:
         
         att = ArticleTextTable(self.connection)
-        article = att.get_article(url)
+
+        match = WAYBACK_ARCHIVE_PATTERN.match(url.human_repr())
+        if match is not None:
+            article = att.get_article(URL(match.group("URL")))
+        else:
+            article = att.get_article(url)
 
         if article is not None:
             logger.info(f"Found cached text for: '{url.human_repr()}'")
