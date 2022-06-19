@@ -39,7 +39,7 @@ def get_mt_article_text():
     
     with NewsScraperSqliteConnection.connection() as conn:
         swu = ScrapedWaybackUrl(conn)
-        urls = list(swu.get_unique_urls_from_site(NewsWebsiteEnum.THE_MOSCOW_TIMES))
+        urls = list(swu.get_unique_urls_from_site(NewsWebsiteEnum.RIA))
         print(len(urls))
        
         cached_wayback_retriever = DatabaseArticleRetriever(conn, WayBackMachineArticleRetriever())

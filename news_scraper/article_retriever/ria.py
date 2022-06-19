@@ -9,11 +9,13 @@ from time import sleep
 from typing import Iterable
 import arrow
 from playwright.sync_api import sync_playwright
+import pytz
 from yarl import URL
 from news_scraper.article.article import DefaultArticleMetadata, DefaultArticleText
 
 from news_scraper.article.protocols import ArticleText
 from datetime import datetime
+from arrow import locales
 
 logger = logging.getLogger()
 
@@ -30,7 +32,6 @@ class RiaArticleRetriever:
             logger.info(f"Waiting for page to load for {url.human_repr()}")
             article_div = page.locator("div.layout-article")
             article_div.wait_for(timeout=90000)
-            logger.info("Done.")
 
             # Get the unix time when the article was created
             datetime_str = article_div.locator(
@@ -39,7 +40,7 @@ class RiaArticleRetriever:
 
             assert isinstance(datetime_str, str)
 
-            datetime_obj = arrow.get(datetime_str, "HH:mm DD/MM/YYYY", locale="ru")
+            datetime_obj = arrow.get(datetime_str, "HH:mm DD.MM.YYYY", tzinfo=pytz.timezone("Europe/Moscow"))
             metadata = DefaultArticleMetadata(datetime=datetime_obj, url=url)
 
             # Get the different pieces of text in the article
