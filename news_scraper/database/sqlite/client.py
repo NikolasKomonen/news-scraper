@@ -15,6 +15,7 @@ from news_scraper.article.article import DefaultArticleMetadata, DefaultArticleT
 
 from news_scraper.article.protocols import ArticleMetadata, ArticleText
 from news_scraper.article_retriever.wayback import WAYBACK_ARCHIVE_PATTERN
+from news_scraper.word_counter.protocols import ArticleWithWordCount
 
 SQL_NULL = "NULL"
 
@@ -679,5 +680,126 @@ class ArticleTextTable(SqlTable):
         date_and_time = datetime.fromisoformat(res[4])
         article_metadata = DefaultArticleMetadata(url=url, datetime=date_and_time)
         return DefaultArticleText(title=res[0], lead=res[1], body=res[2], metadata=article_metadata)
-        
-        
+
+class RootWordTable(SqlTable):
+    def __init__(self, connection: Connection) -> None:
+        super().__init__(connection)
+        self.create_table()
+    
+    @classmethod
+    @property
+    def name(cls) -> str:
+        return "root_word"
+    
+    @classmethod
+    @property
+    def root(cls) -> str:
+        return "root"
+    
+    @classmethod
+    @property
+    def foreign_key(cls) -> str:
+        return f"{cls.name}_id"
+    
+    def create_table(self) -> None:
+        transaction = f"""
+            CREATE TABLE IF NOT EXISTS "{self.name}" (
+                "id"   INTEGER,
+                "root" TEXT NOT NULL UNIQUE,
+                PRIMARY KEY("id")
+            );
+        """
+        self.transaction(transaction)
+
+class AliasOfRootWordTable(SqlTable):
+    def __init__(self, connection: Connection) -> None:
+        super().__init__(connection)
+        self.create_table()
+    
+    @classmethod
+    @property
+    def name(cls) -> str:
+        return "alias_of_root_word"
+    
+    @classmethod
+    @property
+    def alias(cls) -> str:
+        return "alias"
+    
+    def create_table(self) -> None:
+        transaction = f"""
+            CREATE TABLE IF NOT EXISTS "{self.name}" (
+                "{RootWordTable.foreign_key}"   INTEGER,
+                "alias" TEXT NOT NULL,
+                FOREIGN KEY("{RootWordTable.foreign_key}") REFERENCES "{RootWordTable.name}"("id"),
+	            PRIMARY KEY("{RootWordTable.foreign_key},"{self.alias}")
+            );
+        """
+        self.transaction(transaction)
+
+class ArticleWordCountTable(SqlTable):
+    def __init__(self, connection: Connection) -> None:
+        super().__init__(connection)
+        self.create_table()
+
+    @classmethod
+    @property
+    def name(self):
+        return "article_word_count"
+    
+    @property
+    def article_metadata_id(self) -> str:
+        return "article_metadata_id"
+
+    @property
+    def word(self) -> str:
+        return "word"
+
+    @property
+    def count_title(self) -> str:
+        return "count_title"
+
+    @property
+    def count_lead(self) -> str:
+        return "count_lead"
+    
+    @property
+    def count_body(self) -> str:
+        return "count_body"
+
+
+    def create_table(self) -> None:
+        transaction = f"""
+            CREATE TABLE IF NOT EXISTS "{self.name}" (
+                "{ArticleMetadataTable.foreign_id}" INTEGER,
+                "{self.word}"	                    TEXT,
+                "{self.count_title}"	            TEXT,
+                "{self.count_lead}"	                TEXT,
+                "{self.count_body}"	                TEXT,
+                FOREIGN KEY("{ArticleMetadataTable.foreign_id}") REFERENCES "{ArticleMetadataTable.name}"("id") ON DELETE CASCADE,
+                PRIMARY KEY("{ArticleMetadataTable.foreign_id}")
+                PRIMARY KEY("{ArticleMetadataTable.foreign_id}","{self.word}"),
+            );
+        """
+        self.transaction(transaction)
+
+    def set_word_count(self, article_with_count: ArticleWithWordCount) -> None:
+        am = ArticleMetadataTable(self.connection)
+        am.add_metadata(text.metadata)
+        metadata_id = am.get_id(text.metadata.url)
+
+        transaction = dedent(f"""
+            INSERT INTO {self.name}
+            VALUES
+                (
+                    {metadata_id},
+                    ?,
+                    ?,
+                    ?
+                )
+            ON CONFLICT DO UPDATE SET
+                {self.title}=?,
+                {self.lead}=?,
+                {self.body}=?
+        """)
+        self.transaction(transaction, (text.title, text.lead, text.body, text.title, text.lead, text.body))
