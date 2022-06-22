@@ -729,8 +729,8 @@ class AliasOfRootWordTable(SqlTable):
     def create_table(self) -> None:
         transaction = f"""
             CREATE TABLE IF NOT EXISTS "{self.name}" (
-                "{RootWordTable.foreign_key}"   INTEGER,
-                "alias" TEXT NOT NULL,
+                "{RootWordTable.foreign_key}" INTEGER,
+                "{self.alias}"                TEXT NOT NULL,
                 FOREIGN KEY("{RootWordTable.foreign_key}") REFERENCES "{RootWordTable.name}"("id"),
 	            PRIMARY KEY("{RootWordTable.foreign_key},"{self.alias}")
             );
@@ -772,13 +772,13 @@ class ArticleWordCountTable(SqlTable):
         transaction = f"""
             CREATE TABLE IF NOT EXISTS "{self.name}" (
                 "{ArticleMetadataTable.foreign_id}" INTEGER,
-                "{self.word}"	                    TEXT,
-                "{self.count_title}"	            TEXT,
-                "{self.count_lead}"	                TEXT,
-                "{self.count_body}"	                TEXT,
-                FOREIGN KEY("{ArticleMetadataTable.foreign_id}") REFERENCES "{ArticleMetadataTable.name}"("id") ON DELETE CASCADE,
-                PRIMARY KEY("{ArticleMetadataTable.foreign_id}")
-                PRIMARY KEY("{ArticleMetadataTable.foreign_id}","{self.word}"),
+                "{RootWordTable.foreign_key}"	    TEXT,
+                "{self.count_title}"	            INTEGER DEFAULT 0,
+                "{self.count_lead}"	                INTEGER DEFAULT 0,
+                "{self.count_body}"	                INTEGER DEFAULT 0,
+                PRIMARY KEY("{RootWordTable.foreign_key}","{ArticleMetadataTable.foreign_id}"),
+                FOREIGN KEY("{ArticleMetadataTable.foreign_id}") REFERENCES "{ArticleMetadataTable.name}"("id"),
+                FOREIGN KEY("{RootWordTable.foreign_key}") REFERENCES "{RootWordTable.name}"("id")
             );
         """
         self.transaction(transaction)

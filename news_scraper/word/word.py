@@ -5,6 +5,12 @@ from news_scraper.text_normalizer.protocols import StringNormalizer
 
 
 @dataclass(frozen=True)
+class DefaultTextWithAliases:
+    root: str
+    aliases: set[str]
+
+
+@dataclass(frozen=True)
 class NormalizedTextWithAliases:
     _root: str
     _aliases: set[str] = field(default_factory=frozenset)
