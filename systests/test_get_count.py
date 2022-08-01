@@ -2,7 +2,7 @@ from yarl import URL
 from news_scraper.article.article import NormalizedArticleText
 from news_scraper.article_retriever.tass import TassArticleRetriever
 from news_scraper.word.word import NormalizedTextWithAliases
-from news_scraper.word_counter.fuzzy_word_counter import FuzzyArticleWordVariantCounter
+from news_scraper.word_counter.article import FuzzyArticleWordVariantCounter
 
 
 def test_main():

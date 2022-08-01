@@ -28,10 +28,6 @@ handler = logging.StreamHandler(sys.stdout)
 logger.addHandler(handler)
 
 
-
-
-
-
 @dataclass(frozen=True)
 class DefaultArticleUrlScraperResolver:
     """This is a top level class that gives you the
@@ -61,5 +57,3 @@ class DefaultArticleUrlScraperResolver:
         raise Exception(
             f"Could not determine an ArticleRetriever for '{url.human_repr()}'."
         )
-
-

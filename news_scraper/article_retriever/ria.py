@@ -40,7 +40,9 @@ class RiaArticleRetriever:
 
             assert isinstance(datetime_str, str)
 
-            datetime_obj = arrow.get(datetime_str, "HH:mm DD.MM.YYYY", tzinfo=pytz.timezone("Europe/Moscow"))
+            datetime_obj = arrow.get(
+                datetime_str, "HH:mm DD.MM.YYYY", tzinfo=pytz.timezone("Europe/Moscow")
+            )
             metadata = DefaultArticleMetadata(datetime=datetime_obj, url=url)
 
             # Get the different pieces of text in the article

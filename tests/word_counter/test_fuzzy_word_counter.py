@@ -3,9 +3,7 @@ import pytest
 from news_scraper.word.protocols import TextWithAliases
 from news_scraper.word.word import NormalizedTextWithAliases
 
-from news_scraper.word_counter.fuzzy_word_counter import (
-    FuzzyWordVariantCounter,
-)
+from news_scraper.word_counter.fuzzy_word_counter import FuzzyWordVariantCounter
 
 
 class TestFuzzyWordVariantCounter:

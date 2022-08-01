@@ -1,11 +1,7 @@
-import asyncio
 from dataclasses import dataclass
 from functools import lru_cache
-import imp
 import logging
 import re
-import sys
-from time import sleep
 from typing import Iterable
 from playwright.sync_api import sync_playwright
 from yarl import URL
@@ -31,7 +27,9 @@ db.article_scraped_urls.updateMany({}, {$pull: {'scraped_urls': {"$regex": /.*\/
 
 """
 
-URLS_TO_SKIP = re.compile(r".+\/((sport)|(business\-officials)|(top\-officials)|(ads)|(armiya-i-opk))\/.+")
+URLS_TO_SKIP = re.compile(
+    r".+\/((sport)|(business\-officials)|(top\-officials)|(ads)|(armiya-i-opk))\/.+"
+)
 
 TIMEOUT_MILLISECONDS = 60000
 
@@ -47,7 +45,7 @@ class TassArticleRetriever:
 
             # Get the HTML <div> that holds the article
             div = page.locator(".news, .article, .interview, .opinion")
-            
+
             div.wait_for(timeout=TIMEOUT_MILLISECONDS)
             class_attribute = div.get_attribute("class")
             if class_attribute == "article":
@@ -60,10 +58,6 @@ class TassArticleRetriever:
                 return self._get_text_from_opinion(opinion_div=div, url=url)
             raise Exception("Cannot find a defined element for this page.")
 
-            
-
-           
-    
     def _get_text_from_article(self, article_div: Locator, url: URL) -> ArticleText:
         # Get the unix time when the article was created
         datetime_int = int(
@@ -81,15 +75,11 @@ class TassArticleRetriever:
         body = article_div.locator(".text-content .text-block").all_inner_texts()
         body = re.sub("\n", " ", re.sub("\n\n", "\n", " ".join(body)))
 
-        return DefaultArticleText(
-            title=title, lead=lead, body=body, metadata=metadata
-        )
-    
+        return DefaultArticleText(title=title, lead=lead, body=body, metadata=metadata)
+
     def _get_text_from_news(self, news_div: Locator, url: URL) -> ArticleText:
         # Get the unix time when the article was created
-        datetime_int = int(
-            news_div.locator("dateformat").first.get_attribute("time")
-        )
+        datetime_int = int(news_div.locator("dateformat").first.get_attribute("time"))
         assert isinstance(datetime_int, int)
         datetime_obj = datetime.fromtimestamp(datetime_int)
         metadata = DefaultArticleMetadata(datetime=datetime_obj, url=url)
@@ -100,10 +90,8 @@ class TassArticleRetriever:
         body = news_div.locator(".text-content .text-block").all_inner_texts()
         body = re.sub("\n", " ", re.sub("\n\n", "\n", " ".join(body)))
 
-        return DefaultArticleText(
-            title=title, lead=lead, body=body, metadata=metadata
-        )
-    
+        return DefaultArticleText(title=title, lead=lead, body=body, metadata=metadata)
+
     def _get_text_from_interview(self, interview_div: Locator, url: URL) -> ArticleText:
         # Get the unix time when the article was created
         datetime_int = int(
@@ -114,16 +102,16 @@ class TassArticleRetriever:
         metadata = DefaultArticleMetadata(datetime=datetime_obj, url=url)
 
         # Get the different pieces of text in the article
-        title = interview_div.locator(".interview-header__title-wrapper").all_inner_texts()
+        title = interview_div.locator(
+            ".interview-header__title-wrapper"
+        ).all_inner_texts()
         title = " ".join(title)
         lead = ""
         body = interview_div.locator(".text-content .text-block").all_inner_texts()
         body = re.sub("\n", " ", re.sub("\n\n", "\n", " ".join(body)))
 
-        return DefaultArticleText(
-            title=title, lead=lead, body=body, metadata=metadata
-        )
-    
+        return DefaultArticleText(title=title, lead=lead, body=body, metadata=metadata)
+
     def _get_text_from_opinion(self, opinion_div: Locator, url: URL) -> ArticleText:
         # Get the unix time when the article was created
         datetime_int = int(
@@ -140,9 +128,7 @@ class TassArticleRetriever:
         body = opinion_div.locator(".text-content .text-block").all_inner_texts()
         body = re.sub("\n", " ", re.sub("\n\n", "\n", " ".join(body)))
 
-        return DefaultArticleText(
-            title=title, lead=lead, body=body, metadata=metadata
-        )
+        return DefaultArticleText(title=title, lead=lead, body=body, metadata=metadata)
 
 
 @dataclass(frozen=True)

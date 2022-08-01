@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from news_scraper.text_normalizer.nltk_normalizer import cached_nltk_string_normalizer
 
 from news_scraper.text_normalizer.protocols import StringNormalizer
+from news_scraper.word.protocols import TextWithAliases
 
 
 @dataclass(frozen=True)

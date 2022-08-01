@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from sqlite3 import Connection, Cursor, connect
 from textwrap import dedent
-from typing import Iterable, Optional, Tuple
+from typing import Iterable, Optional, Sequence, Tuple
 import arrow
 import pytz
 
@@ -44,6 +44,7 @@ class SqlTable:
     """
     The base class that all sql tables should inherit from.
     """
+
     def __init__(self, connection: Connection) -> None:
         self.connection = connection
         self.cursor = connection.cursor()
@@ -63,7 +64,7 @@ class SqlTable:
     def query(self, query: str) -> Cursor:
         return self.cursor.execute(query)
 
-    def transaction(self, transaction: str, parameters: Optional[Iterable]=None):
+    def transaction(self, transaction: str, parameters: Optional[Iterable] = None):
         if parameters is None:
             parameters = []
         self.cursor.execute(transaction, parameters)
@@ -86,6 +87,7 @@ class SqlTable:
 
 class NewsWebsiteEnum(Enum):
     """Enum for known News Websites"""
+
     THE_MOSCOW_TIMES = "themoscowtimes.com"
     NOVAYAGAZETA = "novayagazeta.ru"
     RIA = "ria.ru"
@@ -113,12 +115,13 @@ class NewsWebsite(SqlTable):
     Table that represents the known
     news websites
     """
+
     def __init__(self, connection: Connection) -> None:
         """"""
         super().__init__(connection)
         self.create_table()
         self.create_initial_data()
-    
+
     @classmethod
     @property
     def foreign_id(cls) -> str:
@@ -203,6 +206,7 @@ class WaybackResult(SqlTable):
     Table that holds the results of requesting
     a wayback machine url for a given url and datetime.
     """
+
     def __init__(self, connection: Connection) -> None:
         """"""
         super().__init__(connection)
@@ -212,7 +216,7 @@ class WaybackResult(SqlTable):
     @property
     def name(cls) -> str:
         return "wayback_result"
-    
+
     @classmethod
     @property
     def foreign_id(cls) -> str:
@@ -418,6 +422,7 @@ class ScrapedWaybackUrl(SqlTable):
     This means there can be some redundant URLs
     in this tables scraped URLs.
     """
+
     def __init__(self, connection: Connection) -> None:
         super().__init__(connection)
         self.create_table()
@@ -426,7 +431,7 @@ class ScrapedWaybackUrl(SqlTable):
     @property
     def name(cls) -> str:
         return "scraped_wayback_url"
-        
+
     @classmethod
     @property
     def scraped_url(cls) -> str:
@@ -469,7 +474,6 @@ class ScrapedWaybackUrl(SqlTable):
         )
         return [URL(row[0]) for row in res]
 
-
     def get_count_for_id(self, wayback_result_id: int) -> int:
         res = self.query(
             f"""
@@ -481,7 +485,7 @@ class ScrapedWaybackUrl(SqlTable):
         )
         count = next(iter(res))[0]
         return count
-    
+
     def get_unique_urls_from_site(self, news_site: NewsWebsiteEnum) -> Iterable[URL]:
         """
         A WaybackResult can have the
@@ -495,7 +499,8 @@ class ScrapedWaybackUrl(SqlTable):
         nws = NewsWebsite(self.connection)
         news_site_id = nws.get_id(news_site)
 
-        query = dedent(f"""            
+        query = dedent(
+            f"""            
             WITH article_with_requested_time AS (
                 SELECT sw.{self.actual_url}, sw.{self.scraped_url}, wr.{WaybackResult.requested_ts}, wr.{NewsWebsite.foreign_id}
                 FROM {self.name} as sw
@@ -510,7 +515,8 @@ class ScrapedWaybackUrl(SqlTable):
             SELECT {self.scraped_url}
             FROM earliest_articles
             WHERE {NewsWebsite.foreign_id}={news_site_id}
-        """)
+        """
+        )
         rows = self.query(query)
 
         return [URL(row[0]) for row in rows]
@@ -520,6 +526,7 @@ class ArticleMetadataTable(SqlTable):
     """
     Table that holds the metadata of an article
     """
+
     def __init__(self, connection: Connection) -> None:
         super().__init__(connection)
         self.create_table()
@@ -556,7 +563,7 @@ class ArticleMetadataTable(SqlTable):
             );
         """
         self.transaction(transaction)
-    
+
     def add_metadata(self, metadata: ArticleMetadata):
         nw = NewsWebsite(self.connection)
         news_site = NewsWebsiteEnum.from_url(metadata.url)
@@ -572,7 +579,7 @@ class ArticleMetadataTable(SqlTable):
             ON CONFLICT ({self.url}) DO UPDATE SET {self.datetime}="{self.isoformat(metadata.datetime)}"
         """
         self.transaction(transaction)
-    
+
     def get_id(self, article_url: URL) -> int:
         """
         Gets the id of the metadata row that
@@ -596,11 +603,12 @@ class ArticleMetadataTable(SqlTable):
             return 0
         return row[0]
 
+
 class ArticleTextTable(SqlTable):
     def __init__(self, connection: Connection) -> None:
         super().__init__(connection)
         self.create_table()
-    
+
     @property
     def name(self) -> str:
         return "article_text"
@@ -635,7 +643,8 @@ class ArticleTextTable(SqlTable):
         am.add_metadata(text.metadata)
         metadata_id = am.get_id(text.metadata.url)
 
-        transaction = dedent(f"""
+        transaction = dedent(
+            f"""
             INSERT INTO {self.name}
             VALUES
                 (
@@ -648,9 +657,12 @@ class ArticleTextTable(SqlTable):
                 {self.title}=?,
                 {self.lead}=?,
                 {self.body}=?
-        """)
-        self.transaction(transaction, (text.title, text.lead, text.body, text.title, text.lead, text.body))
-    
+        """
+        )
+        self.transaction(
+            transaction,
+            (text.title, text.lead, text.body, text.title, text.lead, text.body),
+        )
 
     def get_article(self, url: URL) -> Optional[ArticleText]:
         """
@@ -661,7 +673,7 @@ class ArticleTextTable(SqlTable):
         article_metadata_id = amt.get_id(url)
         if article_metadata_id == 0:
             return None
-        
+
         query = f"""
             SELECT 
                 {self.name}.{self.title},
@@ -675,67 +687,105 @@ class ArticleTextTable(SqlTable):
         """
         res = next(iter(self.query(query)), None)
         if res is None:
-            return None 
+            return None
         url = URL(res[3])
         date_and_time = datetime.fromisoformat(res[4])
         article_metadata = DefaultArticleMetadata(url=url, datetime=date_and_time)
-        return DefaultArticleText(title=res[0], lead=res[1], body=res[2], metadata=article_metadata)
+        return DefaultArticleText(
+            title=res[0], lead=res[1], body=res[2], metadata=article_metadata
+        )
+
 
 class RootWordTable(SqlTable):
     def __init__(self, connection: Connection) -> None:
         super().__init__(connection)
         self.create_table()
-    
+
     @classmethod
     @property
     def name(cls) -> str:
         return "root_word"
-    
+
     @classmethod
     @property
     def root(cls) -> str:
         return "root"
-    
+
     @classmethod
     @property
     def foreign_key(cls) -> str:
         return f"{cls.name}_id"
-    
+
     def create_table(self) -> None:
         transaction = f"""
             CREATE TABLE IF NOT EXISTS "{self.name}" (
-                "id"   INTEGER,
-                "root" TEXT NOT NULL UNIQUE,
-                PRIMARY KEY("id")
+                "id"          INTEGER,
+                "{self.root}" TEXT NOT NULL UNIQUE,
+                PRIMARY KEY("id" AUTOINCREMENT)
             );
         """
         self.transaction(transaction)
+
+    def add_word(self, word: str) -> int:
+        transaction = f"""
+            INSERT INTO {self.name} ({self.root})
+            VALUES ("{word}")
+            ON CONFLICT ({self.root}) DO NOTHING;
+        """
+        self.transaction(transaction)
+
+    def get_id_of_word(self, word) -> int:
+        query = f"""
+            SELECT id
+            FROM {self.name}
+            WHERE {self.root} = '{word}'
+        """
+        return next(iter(self.query(query)))[0]
+
 
 class AliasOfRootWordTable(SqlTable):
     def __init__(self, connection: Connection) -> None:
         super().__init__(connection)
         self.create_table()
-    
+
     @classmethod
     @property
     def name(cls) -> str:
         return "alias_of_root_word"
-    
+
     @classmethod
     @property
     def alias(cls) -> str:
         return "alias"
-    
+
     def create_table(self) -> None:
         transaction = f"""
             CREATE TABLE IF NOT EXISTS "{self.name}" (
                 "{RootWordTable.foreign_key}" INTEGER,
                 "{self.alias}"                TEXT NOT NULL,
-                FOREIGN KEY("{RootWordTable.foreign_key}") REFERENCES "{RootWordTable.name}"("id"),
-	            PRIMARY KEY("{RootWordTable.foreign_key},"{self.alias}")
+                FOREIGN KEY("{RootWordTable.foreign_key}") REFERENCES "{RootWordTable.name}"('id'),
+	            PRIMARY KEY("{RootWordTable.foreign_key}", "{self.alias}")
             );
         """
+
         self.transaction(transaction)
+
+    def add_word(self, root_id: int, word: str) -> None:
+        transaction = f"""
+            INSERT INTO {self.name} ({RootWordTable.foreign_key}, {self.alias})
+            VALUES ({root_id}, '{word}')
+            ON CONFLICT ("{RootWordTable.foreign_key}", "{self.alias}") DO NOTHING;
+        """
+        self.transaction(transaction)
+
+    def get_aliases_for_root(self, root_id: int) -> Sequence[str]:
+        query = f"""
+            SELECT {self.alias}
+            FROM {self.name}
+            WHERE {RootWordTable.foreign_key} = {root_id}
+        """
+        return [alias[0] for alias in self.query(query)]
+
 
 class ArticleWordCountTable(SqlTable):
     def __init__(self, connection: Connection) -> None:
@@ -746,7 +796,7 @@ class ArticleWordCountTable(SqlTable):
     @property
     def name(self):
         return "article_word_count"
-    
+
     @property
     def article_metadata_id(self) -> str:
         return "article_metadata_id"
@@ -762,11 +812,10 @@ class ArticleWordCountTable(SqlTable):
     @property
     def count_lead(self) -> str:
         return "count_lead"
-    
+
     @property
     def count_body(self) -> str:
         return "count_body"
-
 
     def create_table(self) -> None:
         transaction = f"""
@@ -782,24 +831,3 @@ class ArticleWordCountTable(SqlTable):
             );
         """
         self.transaction(transaction)
-
-    def set_word_count(self, article_with_count: ArticleWithWordCount) -> None:
-        am = ArticleMetadataTable(self.connection)
-        am.add_metadata(text.metadata)
-        metadata_id = am.get_id(text.metadata.url)
-
-        transaction = dedent(f"""
-            INSERT INTO {self.name}
-            VALUES
-                (
-                    {metadata_id},
-                    ?,
-                    ?,
-                    ?
-                )
-            ON CONFLICT DO UPDATE SET
-                {self.title}=?,
-                {self.lead}=?,
-                {self.body}=?
-        """)
-        self.transaction(transaction, (text.title, text.lead, text.body, text.title, text.lead, text.body))

@@ -7,7 +7,12 @@ from yarl import URL
 
 from news_scraper.article_retriever.protocols import ArticleRetriever, ArticleUrlScraper
 from news_scraper.article_retriever.wayback import WAYBACK_ARCHIVE_PATTERN
-from news_scraper.database.sqlite.client import ArticleMetadataTable, ArticleTextTable, ScrapedWaybackUrl, WaybackResult
+from news_scraper.database.sqlite.client import (
+    ArticleMetadataTable,
+    ArticleTextTable,
+    ScrapedWaybackUrl,
+    WaybackResult,
+)
 
 from ..article.protocols import ArticleText
 
@@ -30,7 +35,7 @@ class DatabaseArticleRetriever:
     actual_retriever: ArticleRetriever
 
     def __call__(self, url: URL) -> ArticleText:
-        
+
         att = ArticleTextTable(self.connection)
 
         match = WAYBACK_ARCHIVE_PATTERN.match(url.human_repr())
