@@ -66,7 +66,7 @@ class TestAliasOfRootWordTable:
         root_word_table.add_word(root_word)
         root_word_id = root_word_table.get_id_of_word(root_word)
         return root_word, root_word_id
-    
+
     @pytest.fixture
     def other_root_word_and_id(self, root_word_table: RootWordTable) -> tuple[str, int]:
         root_word = "MyOtherRootWord"
@@ -89,6 +89,21 @@ class TestAliasOfRootWordTable:
         res = alias_of_root_word_table.get_aliases_for_root(root_word_id)
         assert res == alias_words
 
+    def test_can_add_same_alias_multiple_times(
+        self,
+        alias_of_root_word_table: AliasOfRootWordTable,
+        root_word_and_id: tuple[str, int],
+    ):
+        _, root_word_id = root_word_and_id
+
+        # Add aliases to root word
+        for _ in range(5):
+            alias_of_root_word_table.add_word(root_word_id, "Blooh")
+            alias_of_root_word_table.add_word(root_word_id, "Blah")
+
+        res = alias_of_root_word_table.get_aliases_for_root(root_word_id)
+        assert sorted(res) == sorted(["Blooh", "Blah"])
+
     def test_add_aliases_and_get_them_from_matching_root(
         self,
         alias_of_root_word_table: AliasOfRootWordTable,
@@ -102,7 +117,7 @@ class TestAliasOfRootWordTable:
         # Add aliases to root word
         for alias_word in alias_words:
             alias_of_root_word_table.add_word(root_word_id, alias_word)
-        
+
         # Add aliases to root word
         for alias_word in alias_words:
             alias_of_root_word_table.add_word(other_word_id, alias_word)

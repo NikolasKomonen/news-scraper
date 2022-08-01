@@ -17,12 +17,15 @@ from news_scraper.article_retriever.wayback import (
     WayBackMachineArticleRetriever,
 )
 from news_scraper.database.sqlite.client import (
+    AliasOfRootWordTable,
     ArticleTextTable,
     NewsScraperSqliteConnection,
     NewsWebsiteEnum,
+    RootWordTable,
     ScrapedWaybackUrl,
     WaybackResult,
 )
+from news_scraper.word.save import SqlSaveTextWithAliases
 from news_scraper.word.word import DefaultTextWithAliases
 
 logger = logging.getLogger()
@@ -88,8 +91,17 @@ def update_scraped_urls():
         swu.connection.commit()
 
 
-def add_words():
-    x = [
+def load_all_word_variants_to_db():
+    """
+    This is an idempotent function that adds all
+    word variants to the DB.
+
+    You can add more instances to the list
+    and safely run this function again to add any
+    new values.
+    """
+
+    to_add = [
         DefaultTextWithAliases(root="covid", aliases=["covid19"]),
         DefaultTextWithAliases(root="vaccine", aliases=["vax", "vaxx"]),
         DefaultTextWithAliases(root="putin", aliases=[]),
@@ -106,5 +118,14 @@ def add_words():
         DefaultTextWithAliases(root="pandemic", aliases=[]),
         DefaultTextWithAliases(root="russia", aliases=[]),
         DefaultTextWithAliases(root="moscow", aliases=[]),
+        DefaultTextWithAliases(root="Elf", aliases=["OnAShelf"]),
         DefaultTextWithAliases(root="america", aliases=["american"]),
     ]
+
+    with NewsScraperSqliteConnection.connection() as conn:
+        saver = SqlSaveTextWithAliases(RootWordTable(conn), AliasOfRootWordTable(conn))
+        for twa in to_add:
+            saver(twa)
+
+
+add_words()

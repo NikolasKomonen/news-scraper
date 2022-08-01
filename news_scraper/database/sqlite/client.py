@@ -763,7 +763,7 @@ class AliasOfRootWordTable(SqlTable):
             CREATE TABLE IF NOT EXISTS "{self.name}" (
                 "{RootWordTable.foreign_key}" INTEGER,
                 "{self.alias}"                TEXT NOT NULL,
-                FOREIGN KEY("{RootWordTable.foreign_key}") REFERENCES "{RootWordTable.name}"('id'),
+                FOREIGN KEY("{RootWordTable.foreign_key}") REFERENCES "{RootWordTable.name}"('id') ON DELETE CASCADE,
 	            PRIMARY KEY("{RootWordTable.foreign_key}", "{self.alias}")
             );
         """
@@ -777,7 +777,7 @@ class AliasOfRootWordTable(SqlTable):
             ON CONFLICT ("{RootWordTable.foreign_key}", "{self.alias}") DO NOTHING;
         """
         self.transaction(transaction)
-    
+
     def add_words(self, root_id: int, words: Iterable[str]) -> None:
         for alias in words:
             self.add_word(root_id, alias)
