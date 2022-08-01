@@ -34,7 +34,7 @@ class TestRootWordTable:
             word_id = root_word_table.get_id_of_word(word)
             assert word_id == id_counter, f"Failure with '{word}' of id '{word_id}'"
             id_counter += 1
-    
+
     def test_adding_word_multiple_times_doesnt_modify(
         self, root_word_table: RootWordTable
     ):
@@ -60,16 +60,20 @@ class TestAliasOfRootWordTable:
         """The words of the alias"""
         return ["ABC", "DEF", "GHI"]
 
-    def test_add_aliases_and_get_them_from_matching_root(
-        self,
-        root_word_table: RootWordTable,
-        alias_of_root_word_table: AliasOfRootWordTable,
-        alias_words: Sequence[str],
-    ):
-        # Create root word
+    @pytest.fixture
+    def root_word_and_id(self, root_word_table: RootWordTable) -> tuple[str, int]:
         root_word = "MyRootWord"
         root_word_table.add_word(root_word)
         root_word_id = root_word_table.get_id_of_word(root_word)
+        return root_word, root_word_id
+
+    def test_add_aliases_and_get_them_from_matching_root(
+        self,
+        alias_of_root_word_table: AliasOfRootWordTable,
+        alias_words: Sequence[str],
+        root_word_and_id: tuple[str, int],
+    ):
+        _, root_word_id = root_word_and_id
 
         # Add aliases to root word
         for alias_word in alias_words:
