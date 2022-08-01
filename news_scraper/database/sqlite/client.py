@@ -777,6 +777,10 @@ class AliasOfRootWordTable(SqlTable):
             ON CONFLICT ("{RootWordTable.foreign_key}", "{self.alias}") DO NOTHING;
         """
         self.transaction(transaction)
+    
+    def add_words(self, root_id: int, words: Iterable[str]) -> None:
+        for alias in words:
+            self.add_word(root_id, alias)
 
     def get_aliases_for_root(self, root_id: int) -> Sequence[str]:
         query = f"""

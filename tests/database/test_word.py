@@ -66,6 +66,13 @@ class TestAliasOfRootWordTable:
         root_word_table.add_word(root_word)
         root_word_id = root_word_table.get_id_of_word(root_word)
         return root_word, root_word_id
+    
+    @pytest.fixture
+    def other_root_word_and_id(self, root_word_table: RootWordTable) -> tuple[str, int]:
+        root_word = "MyOtherRootWord"
+        root_word_table.add_word(root_word)
+        root_word_id = root_word_table.get_id_of_word(root_word)
+        return root_word, root_word_id
 
     def test_add_aliases_and_get_them_from_matching_root(
         self,
@@ -80,4 +87,28 @@ class TestAliasOfRootWordTable:
             alias_of_root_word_table.add_word(root_word_id, alias_word)
 
         res = alias_of_root_word_table.get_aliases_for_root(root_word_id)
+        assert res == alias_words
+
+    def test_add_aliases_and_get_them_from_matching_root(
+        self,
+        alias_of_root_word_table: AliasOfRootWordTable,
+        alias_words: Sequence[str],
+        root_word_and_id: tuple[str, int],
+        other_root_word_and_id: tuple[str, int],
+    ):
+        _, root_word_id = root_word_and_id
+        _, other_word_id = other_root_word_and_id
+
+        # Add aliases to root word
+        for alias_word in alias_words:
+            alias_of_root_word_table.add_word(root_word_id, alias_word)
+        
+        # Add aliases to root word
+        for alias_word in alias_words:
+            alias_of_root_word_table.add_word(other_word_id, alias_word)
+
+        res = alias_of_root_word_table.get_aliases_for_root(root_word_id)
+        assert res == alias_words
+
+        res = alias_of_root_word_table.get_aliases_for_root(other_word_id)
         assert res == alias_words
