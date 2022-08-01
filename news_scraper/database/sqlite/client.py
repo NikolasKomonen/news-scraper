@@ -741,6 +741,13 @@ class RootWordTable(SqlTable):
             WHERE {self.root} = '{word}'
         """
         return next(iter(self.query(query)))[0]
+    
+    def get_all_words(self) -> Sequence[tuple[int, str]]:
+        query = f"""
+            SELECT id, {self.root}
+            FROM {self.name}
+        """
+        return list(self.query(query))
 
 
 class AliasOfRootWordTable(SqlTable):

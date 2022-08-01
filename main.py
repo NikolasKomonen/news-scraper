@@ -25,6 +25,7 @@ from news_scraper.database.sqlite.client import (
     ScrapedWaybackUrl,
     WaybackResult,
 )
+from news_scraper.word.load import load_all_text_with_aliases
 from news_scraper.word.save import SqlSaveTextWithAliases
 from news_scraper.word.word import DefaultTextWithAliases
 
@@ -126,6 +127,3 @@ def load_all_word_variants_to_db():
         saver = SqlSaveTextWithAliases(RootWordTable(conn), AliasOfRootWordTable(conn))
         for twa in to_add:
             saver(twa)
-
-
-add_words()
