@@ -15,4 +15,3 @@ class SqlSaveTextWithAliases(SaveTextWithAliases):
 
         for alias in twa.aliases:
             self.alias_of_root_word_table.add_word(root_id, alias)
-

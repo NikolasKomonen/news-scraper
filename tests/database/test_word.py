@@ -34,11 +34,25 @@ class TestRootWordTable:
             word_id = root_word_table.get_id_of_word(word)
             assert word_id == id_counter, f"Failure with '{word}' of id '{word_id}'"
             id_counter += 1
+    
+    def test_adding_word_multiple_times_doesnt_modify(
+        self, root_word_table: RootWordTable
+    ):
+        root_word_table.add_word("Apple")
+        root_word_table.add_word("Orange")
+
+        assert root_word_table.get_id_of_word("Apple") == 1
+        assert root_word_table.get_id_of_word("Orange") == 2
+
+        root_word_table.add_word("Apple")
+        assert root_word_table.get_id_of_word("Apple") == 1
 
 
 class TestAliasOfRootWordTable:
     @pytest.fixture
-    def alias_of_root_word_table(self, mock_connection: Connection) -> AliasOfRootWordTable:
+    def alias_of_root_word_table(
+        self, mock_connection: Connection
+    ) -> AliasOfRootWordTable:
         return AliasOfRootWordTable(mock_connection)
 
     @pytest.fixture
@@ -50,7 +64,7 @@ class TestAliasOfRootWordTable:
         self,
         root_word_table: RootWordTable,
         alias_of_root_word_table: AliasOfRootWordTable,
-        alias_words: Sequence[str]
+        alias_words: Sequence[str],
     ):
         # Create root word
         root_word = "MyRootWord"
